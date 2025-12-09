@@ -1,0 +1,27 @@
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/LeshanClientDemo.java
+	modified:   leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/cli/LeshanClientDemoCLI.java
+	modified:   leshan-core-demo/src/main/java/org/eclipse/leshan/core/demo/LwM2mDemoConstant.java
+	modified:   leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/ClientServlet.java
+	modified:   leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/EventServlet.java
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	README-2IMN15.txt
+	git-diff.txt
+	git-status.txt
+	leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/DemandResponse.java
+	leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/Luminaire.java
+	leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/PresenceDetector.java
+	leshan-client-demo/src/main/resources/
+	leshan-core-demo/src/main/resources/models/33000.xml
+	leshan-core-demo/src/main/resources/models/33001.xml
+	leshan-core-demo/src/main/resources/models/33002.xml
+	leshan-server-demo/src/main/java/org/course/
+
+no changes added to commit (use "git add" and/or "git commit -a")

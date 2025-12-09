@@ -1,0 +1,226 @@
+diff --git a/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/LeshanClientDemo.java b/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/LeshanClientDemo.java
+index d521b28a..9ecb09f4 100644
+--- a/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/LeshanClientDemo.java
++++ b/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/LeshanClientDemo.java
+@@ -222,8 +222,39 @@ public class LeshanClientDemo {
+         }
+         initializer.setInstancesForObject(DEVICE, new MyDevice());
+         initializer.setInstancesForObject(LOCATION, locationInstance);
+-        initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, new RandomTemperatureSensor());
+-        initializer.setInstancesForObject(OBJECT_ID_LWM2M_TEST_OBJECT, new LwM2mTestObject());
++        // initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, new RandomTemperatureSensor());
++        // initializer.setInstancesForObject(OBJECT_ID_LWM2M_TEST_OBJECT, new LwM2mTestObject());
++
++	//
++	// 2IMN15: Create objects and handle command line parameters.
++	//
++	if (cli.presencedetector.enabled) {
++	    // Create the object.
++	    PresenceDetector pdetect = new PresenceDetector();
++	    // Adjust resources of the object.
++	    // Register the object to the system.
++	    initializer.setInstancesForObject(PresenceDetector.OBJECT_ID,
++					      pdetect);
++	}
++	if (cli.luminaire.enabled) {
++	    // Create the object.
++	    Luminaire luminaire = new Luminaire();
++	    // Adjust resource of the object based on parameters.
++	    luminaire.configure(cli.luminaire.type, cli.luminaire.peakpower);
++	    // Register the object to the system.
++	    initializer.setInstancesForObject(Luminaire.OBJECT_ID, luminaire);
++	}
++	if (cli.demandresponse.enabled) {
++	    // Create the object.
++	    DemandResponse demand = new DemandResponse();
++	    // Adjust resource of the object based on parameters
++	    demand.configure(cli.demandresponse.maxpower);
++	    // Register the object to the system.
++	    initializer.setInstancesForObject(DemandResponse.OBJECT_ID, demand);
++	}
++	//
++	// End of 2IMN15 modification
++	//
+ 
+         List<LwM2mObjectEnabler> enablers = initializer.createAll();
+ 
+diff --git a/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/cli/LeshanClientDemoCLI.java b/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/cli/LeshanClientDemoCLI.java
+index db9c2bb8..bbd5cac4 100644
+--- a/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/cli/LeshanClientDemoCLI.java
++++ b/leshan-client-demo/src/main/java/org/eclipse/leshan/client/demo/cli/LeshanClientDemoCLI.java
+@@ -159,6 +159,83 @@ public class LeshanClientDemoCLI implements Runnable {
+         public boolean supportOldFormat;
+     }
+ 
++    //
++    // 2IMN15: specification of command line parameters.
++    //
++
++    /* ********************************** Presence Detector ******************************** */
++    @ArgGroup(validate = false,
++              heading = "%n@|bold,underline Object Presence Detector Options|@ %n%n"//
++                      + "@|italic " //
++                      + "Configure a presence detector." //
++                      + "|@%n%n")
++    public PresenceSection presencedetector = new PresenceSection();
++
++    public static class PresenceSection {
++        @Option(names = { "-presence", "--enable-presence" },
++                description = { //
++                        "Enable a presence detection object.", //
++                        "Just a flag" })
++        public boolean enabled;
++    }
++
++    /* ********************************** Luminaire ******************************** */
++    @ArgGroup(validate = false,
++              heading = "%n@|bold,underline Object Luminaire Options|@ %n%n"//
++                      + "@|italic " //
++                      + "Configure the luminaire." //
++                      + "|@%n%n")
++    public LuminaireSection luminaire = new LuminaireSection();
++
++    public static class LuminaireSection {
++        @Option(names = { "-luminaire", "--enable-luminaire" },
++                description = { //
++                        "Enable a luminaire object.", //
++                        "Just a flag." })
++	public boolean enabled;
++
++	@Option(names = { "-lum", "--luminaire-type" },
++		defaultValue = "LED",
++                description = { //
++                        "The type of luminaire (LED, Halogen).", //
++                        "A string" })
++        public String type;
++
++	@Option(names = { "-pp", "--luminaire-power" },
++		defaultValue = "15",
++                description = { //
++                        "The peak power of the luminaire in Watt.", //
++                        "An integer" })
++	public Integer peakpower;
++    }
++
++    /* ********************************** Demand Response ******************************** */
++    @ArgGroup(validate = false,
++              heading = "%n@|bold,underline Object Demand Response Options|@ %n%n"//
++                      + "@|italic " //
++                      + "Configure the demand response function." //
++                      + "|@%n%n")
++
++    public DemandSection demandresponse = new DemandSection();
++
++    public static class DemandSection {
++        @Option(names = { "-demand", "--enable-demand" },
++                description = { //
++                        "Enable a demand response object.", //
++                        "Just a flag" })
++        public boolean enabled;
++
++	@Option(names = { "-maxp", "--demand-max" },
++		defaultValue = "300",
++                description = { //
++                        "The maximum power for a room in Watt.", //
++                        "An integer" })
++	public Integer maxpower;
++    }
++    //
++    // End of 2IMN15 modification
++    //
++
+     /* ********************************** Location Section ******************************** */
+     @ArgGroup(validate = false,
+               heading = "%n@|bold,underline Object Location Options|@ %n%n"//
+diff --git a/leshan-core-demo/src/main/java/org/eclipse/leshan/core/demo/LwM2mDemoConstant.java b/leshan-core-demo/src/main/java/org/eclipse/leshan/core/demo/LwM2mDemoConstant.java
+index 7a96a8fa..1b8c0df3 100644
+--- a/leshan-core-demo/src/main/java/org/eclipse/leshan/core/demo/LwM2mDemoConstant.java
++++ b/leshan-core-demo/src/main/java/org/eclipse/leshan/core/demo/LwM2mDemoConstant.java
+@@ -58,5 +58,9 @@ public class LwM2mDemoConstant {
+             "10346.xml", "10347.xml", "10348.xml", "10349.xml", "10350.xml", "10351.xml", "10352.xml", "10353.xml",
+             "10354.xml", "10355.xml", "10356.xml", "10357.xml", "10358.xml", "10359.xml", "10360.xml", "10361.xml",
+             "10362.xml", "10363.xml", "10364.xml", "10365.xml", "10366.xml", "10368.xml", "10369.xml", "10371.xml",
+-            "10374.xml", "10375.xml", "18830.xml", "18831.xml" };
++            "10374.xml", "10375.xml", "18830.xml", "18831.xml",
++	    "33000.xml", // 2IMN15:  Presence Detector
++	    "33001.xml", // 2IMN15:  Luminaire
++	    "33002.xml"  // 2IMN15:  Demand Response
++    };
+ }
+diff --git a/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/ClientServlet.java b/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/ClientServlet.java
+index 1b0c927e..4f902c55 100644
+--- a/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/ClientServlet.java
++++ b/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/ClientServlet.java
+@@ -89,6 +89,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
+ import com.fasterxml.jackson.databind.ObjectMapper;
+ import com.fasterxml.jackson.databind.module.SimpleModule;
+ 
++
++// 2IMN15:  main application.
++import org.course.RoomControl;
++
+ /**
+  * Service HTTP REST API calls.
+  */
+@@ -116,6 +120,11 @@ public class ClientServlet extends HttpServlet {
+     public ClientServlet(LeshanServer server) {
+         this.server = server;
+ 
++	//
++	// 2IMN15: set server object and initialize state.
++	//
++	RoomControl.Initialize(server);
++	
+         mapper = new ObjectMapper();
+         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+         SimpleModule module = new SimpleModule();
+@@ -554,6 +563,7 @@ public class ClientServlet extends HttpServlet {
+         }
+     }
+ 
++
+     private void processDeviceResponse(HttpServletRequest req, HttpServletResponse resp, LwM2mResponse cResponse)
+             throws IOException {
+         if (cResponse == null) {
+diff --git a/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/EventServlet.java b/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/EventServlet.java
+index d4df0de9..07d82a34 100644
+--- a/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/EventServlet.java
++++ b/leshan-server-demo/src/main/java/org/eclipse/leshan/server/demo/servlet/EventServlet.java
+@@ -64,6 +64,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
+ 
+ import jline.internal.Log;
+ 
++// 2IMN15:  import access class
++import org.course.RoomControl;
++
+ public class EventServlet extends EventSourceServlet {
+ 
+     private static final String EVENT_DEREGISTRATION = "DEREGISTRATION";
+@@ -100,6 +103,8 @@ public class EventServlet extends EventSourceServlet {
+         @Override
+         public void registered(Registration registration, Registration previousReg,
+                 Collection<Observation> previousObservations) {
++	    // 2IMN15: Inform about registration.
++	    RoomControl.handleRegistration(registration);
+             String jReg = null;
+             try {
+                 jReg = EventServlet.this.mapper.writeValueAsString(registration);
+@@ -127,6 +132,8 @@ public class EventServlet extends EventSourceServlet {
+         @Override
+         public void unregistered(Registration registration, Collection<Observation> observations, boolean expired,
+                 Registration newReg) {
++	    // 2IMN15: Inform about deregistration.
++	    RoomControl.handleDeregistration(registration);
+             String jReg = null;
+             try {
+                 jReg = EventServlet.this.mapper.writeValueAsString(registration);
+@@ -175,6 +182,9 @@ public class EventServlet extends EventSourceServlet {
+             }
+ 
+             if (registration != null) {
++		// 2IMN15: Inform about observe notification.
++		RoomControl.handleObserveResponse(observation, registration,response);
++
+                 String data = new StringBuilder("{\"ep\":\"") //
+                         .append(registration.getEndpoint()) //
+                         .append("\",\"kind\":\"single\"") //

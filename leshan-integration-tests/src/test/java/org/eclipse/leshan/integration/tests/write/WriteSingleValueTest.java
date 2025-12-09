@@ -1,0 +1,314 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Sierra Wireless and others.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ *
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ *
+ * Contributors:
+ *     Sierra Wireless - initial API and implementation
+ *******************************************************************************/
+package org.eclipse.leshan.integration.tests.write;
+
+import static org.eclipse.leshan.core.ResponseCode.CHANGED;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsInstanceOf.instanceOf;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.leshan.core.LwM2m;
+import org.eclipse.leshan.core.ResponseCode;
+import org.eclipse.leshan.core.link.Link;
+import org.eclipse.leshan.core.link.attributes.QuotedStringAttribute;
+import org.eclipse.leshan.core.link.attributes.UnquotedStringAttribute;
+import org.eclipse.leshan.core.link.lwm2m.MixedLwM2mLink;
+import org.eclipse.leshan.core.link.lwm2m.attributes.LwM2mAttributes;
+import org.eclipse.leshan.core.model.ResourceModel.Type;
+import org.eclipse.leshan.core.node.LwM2mPath;
+import org.eclipse.leshan.core.node.LwM2mResource;
+import org.eclipse.leshan.core.node.LwM2mResourceInstance;
+import org.eclipse.leshan.core.node.LwM2mSingleResource;
+import org.eclipse.leshan.core.node.ObjectLink;
+import org.eclipse.leshan.core.node.codec.CodecException;
+import org.eclipse.leshan.core.request.ContentFormat;
+import org.eclipse.leshan.core.request.ReadRequest;
+import org.eclipse.leshan.core.request.WriteRequest;
+import org.eclipse.leshan.core.response.ErrorCallback;
+import org.eclipse.leshan.core.response.ReadResponse;
+import org.eclipse.leshan.core.response.ResponseCallback;
+import org.eclipse.leshan.core.response.WriteResponse;
+import org.eclipse.leshan.core.util.TestLwM2mId;
+import org.eclipse.leshan.core.util.datatype.ULong;
+import org.eclipse.leshan.integration.tests.util.IntegrationTestHelper;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+@RunWith(Parameterized.class)
+public class WriteSingleValueTest {
+    protected IntegrationTestHelper helper = new IntegrationTestHelper();
+
+    @Parameters(name = "{0}")
+    public static Collection<?> contentFormats() {
+        return Arrays.asList(new Object[][] { //
+                { ContentFormat.TEXT }, //
+                { ContentFormat.TLV }, //
+                { ContentFormat.CBOR }, //
+                { ContentFormat.fromCode(ContentFormat.OLD_TLV_CODE) }, //
+                { ContentFormat.JSON }, //
+                { ContentFormat.fromCode(ContentFormat.OLD_JSON_CODE) }, //
+                { ContentFormat.SENML_JSON }, //
+                { ContentFormat.SENML_CBOR } });
+    }
+
+    private ContentFormat contentFormat;
+
+    public WriteSingleValueTest(ContentFormat contentFormat) {
+        this.contentFormat = contentFormat;
+    }
+
+    @Before
+    public void start() {
+        helper.initialize();
+        helper.createServer();
+        helper.server.start();
+        helper.createClient();
+        helper.client.start();
+        helper.waitForRegistrationAtServerSide(1);
+    }
+
+    @After
+    public void stop() {
+        helper.client.destroy(false);
+        helper.server.destroy();
+        helper.dispose();
+    }
+
+    @Test
+    public void write_string_resource() throws InterruptedException {
+        // write resource
+        String expectedvalue = "stringvalue";
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.STRING_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.STRING_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void write_boolean_resource() throws InterruptedException {
+        // write resource
+        boolean expectedvalue = true;
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.BOOLEAN_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.BOOLEAN_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void write_integer_resource() throws InterruptedException {
+        // write resource
+        long expectedvalue = -999l;
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.INTEGER_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.INTEGER_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void can_write_string_resource_instance() throws InterruptedException {
+        write_string_resource_instance(contentFormat, 0);
+    }
+
+    private void write_string_resource_instance(ContentFormat format, int resourceInstance)
+            throws InterruptedException {
+        // read device model number
+        String valueToWrite = "newValue";
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(format, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.MULTIPLE_STRING_VALUE,
+                        resourceInstance, valueToWrite, Type.STRING));
+
+        // verify result
+        assertEquals(CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(), new ReadRequest(format,
+                TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.MULTIPLE_STRING_VALUE, resourceInstance));
+
+        // verify result
+        LwM2mResourceInstance resource = (LwM2mResourceInstance) readResponse.getContent();
+        assertEquals(valueToWrite, resource.getValue());
+    }
+
+    @Test
+    public void write_float_resource() throws InterruptedException {
+        // write resource
+        double expectedvalue = 999.99;
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.FLOAT_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.FLOAT_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void write_time_resource() throws InterruptedException {
+        // write resource
+        Date expectedvalue = new Date(946681000l); // second accuracy
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.TIME_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.TIME_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void write_corelnk_resource() throws InterruptedException {
+        // write resource
+        Link[] expectedvalue = new Link[3];
+        expectedvalue[0] = new MixedLwM2mLink(null, new LwM2mPath(3),
+                LwM2mAttributes.create(LwM2mAttributes.OBJECT_VERSION, new LwM2m.Version("1.2")));
+        expectedvalue[1] = new MixedLwM2mLink(null, new LwM2mPath(3, 1));
+        expectedvalue[2] = new MixedLwM2mLink(null, new LwM2mPath(3, 1, 0),
+                new QuotedStringAttribute("attr1", "attr1Value"), new UnquotedStringAttribute("attr2", "attr2Value"));
+
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.CORELNK_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.CORELNK_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertArrayEquals(expectedvalue, (Link[]) resource.getValue());
+    }
+
+    @Test
+    public void write_unsigned_integer_resource() throws InterruptedException {
+        // write resource
+        ULong expectedvalue = ULong.valueOf("18446744073709551615"); // this unsigned integer can not be stored in a
+
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(), new WriteRequest(contentFormat,
+                TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.UNSIGNED_INTEGER_VALUE, expectedvalue));
+
+        // verify result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // read resource to check the value changed
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.UNSIGNED_INTEGER_VALUE));
+        LwM2mResource resource = (LwM2mResource) readResponse.getContent();
+        assertEquals(expectedvalue, resource.getValue());
+    }
+
+    @Test
+    public void can_write_single_instance_objlnk_resource() throws InterruptedException {
+
+        ObjectLink data = new ObjectLink(10245, 1);
+
+        // Write objlnk resource
+        WriteResponse response = helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.MULTIPLE_OBJLINK_VALUE, data));
+
+        // Verify Write result
+        assertEquals(ResponseCode.CHANGED, response.getCode());
+        assertNotNull(response.getCoapResponse());
+        assertThat(response.getCoapResponse(), is(instanceOf(Response.class)));
+
+        // Reading back the written OBJLNK value
+        ReadResponse readResponse = helper.server.send(helper.getCurrentRegistration(),
+                new ReadRequest(TestLwM2mId.TEST_OBJECT, 0, TestLwM2mId.MULTIPLE_OBJLINK_VALUE));
+        LwM2mSingleResource resource = (LwM2mSingleResource) readResponse.getContent();
+
+        // verify read value
+        assertEquals(((ObjectLink) resource.getValue()).getObjectId(), 10245);
+        assertEquals(((ObjectLink) resource.getValue()).getObjectInstanceId(), 1);
+    }
+
+    @Test(expected = CodecException.class)
+    public void send_writerequest_synchronously_with_bad_payload_raises_codeexception() throws InterruptedException {
+        helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, 3, 0, 13, "a string instead of timestamp for currenttime resource"));
+
+    }
+
+    @Test(expected = CodecException.class)
+    public void send_writerequest_asynchronously_with_bad_payload_raises_codeexception() throws InterruptedException {
+        helper.server.send(helper.getCurrentRegistration(),
+                new WriteRequest(contentFormat, 3, 0, 13, "a string instead of timestamp for currenttime resource"),
+                new ResponseCallback<WriteResponse>() {
+                    @Override
+                    public void onResponse(WriteResponse response) {
+                    }
+                }, new ErrorCallback() {
+                    @Override
+                    public void onError(Exception e) {
+                    }
+                });
+    }
+}

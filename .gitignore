@@ -1,0 +1,43 @@
+# Leshan config files #
+leshan-core/ddffiles
+**/Californium.properties
+**/Californium3.properties
+**/Californium3.bsserver.properties
+**/Californium3.server.properties
+**/Californium3.client.properties
+**/data/*.data
+**/data/*.json
+
+# Binary files #
+*.class
+
+# Maven build files #
+target
+
+# Eclipse files #
+bin/
+.classpath
+.project
+.settings
+
+# IntelliJ Config Files #
+.idea/
+*.iml
+
+# Visual Studio Code files #
+.vscode/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# log Files #
+**/src/main/**/logback*.xml
+**/src/test/**/logback*.xml
+
+# Credentials files #
+**/*.der
+**/*.pem
+**/*.srl
+!**/src/**/*.der
