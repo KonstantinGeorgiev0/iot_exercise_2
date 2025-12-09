@@ -36,18 +36,20 @@ public class RoomControl {
     //
     // Declare variables to keep track of the state of the room.
     //
-	// Initialized to MAX_VALUE so lights default to full brightness if no DR is present.
+	// total power budget
 	private static int powerBudget;
 
-	// Tracks current presence status.
+	// track current presence status
 	private static boolean presence;
 
-	// Tracks total maximum power of all connected luminaires.
+	// track total maximum power of all connected luminaires
 	private static int totalMaxRoomPower;
 
-	// Map to store registered Luminaires: Endpoint -> Peak Power (Watts)
-	//  Stores "peak power map"
+	// map to store registered luminaires
 	private static Map<String, Integer> luminaireRegistry;
+
+	// map to track state of each sensor
+	private static Map<String, Boolean> sensorStates;
 
     public static void Initialize(LeshanServer server) {
 		// Register the LWM2M server object for future use
@@ -60,9 +62,9 @@ public class RoomControl {
 		powerBudget = Integer.MAX_VALUE;
 		totalMaxRoomPower = 0;
 		luminaireRegistry = Collections.synchronizedMap(new HashMap<>());
+		sensorStates = Collections.synchronizedMap(new HashMap<>());
 
-		System.out.println("RoomControl Logic Attached to Server!");
-
+		System.out.println("RomCom Logic Init");
     }
 
     //
@@ -79,31 +81,30 @@ public class RoomControl {
         Map<Integer,org.eclipse.leshan.core.LwM2m.Version> supportedObject =
 	    registration.getSupportedObject();
 
-        if (supportedObject.get(Constants.PRESENCE_DETECTOR_ID) != null) {
-	    	System.out.println("Presence Detector: " + registration.getEndpoint());
-			//
-			// 2IMN15:  TODO  :  fill in
-			//
-			// Process the registration of a new Presence Detector.
+		// if presence detector is available, register it
+		if (supportedObject.get(Constants.PRESENCE_DETECTOR_ID) != null) {
+			String endpoint = registration.getEndpoint();
+			System.out.println("Presence Detector Registered: " + endpoint);
+
+			// add to map with default false
+			sensorStates.put(endpoint, false);
+			System.out.println(">>> Active Sensors Count: " + sensorStates.size() + " <<<");
 
 			// observe presence resource
 			try {
-				ObserveRequest obRequest =
-						new ObserveRequest(Constants.PRESENCE_DETECTOR_ID, 0, Constants.RES_PRESENCE);
+				ObserveRequest obRequest = new ObserveRequest(Constants.PRESENCE_DETECTOR_ID, 0, Constants.RES_PRESENCE);
 				lwServer.send(registration, obRequest, 1000);
-				System.out.println(">>ObserveRequest sent << ");
+				System.out.println(">> ObserveRequest sent << ");
 			} catch (Exception e) {
-				System.out.println("Observe request failed for Presence Detector: " + e.getMessage());
+				System.out.println("Observe request failed: " + e.getMessage());
 			}
-        }
+		}
 
+		// if luminaire is available, register it
         if (supportedObject.get(Constants.LUMINAIRE_ID) != null) {
-	    System.out.println("Luminaire");
+	    	System.out.println("Luminaire");
 
-	    //
-	    // 2IMN15:  TODO  :  fill in
-	    //
-	    // Process the registration of a new Luminaire.
+			// take peak power from resource
 			int peakPower =
 					readInteger(registration, Constants.LUMINAIRE_ID, 0, Constants.RES_PEAK_POWER);
 
@@ -113,24 +114,33 @@ public class RoomControl {
 				totalMaxRoomPower += peakPower;
 			}
 			System.out.println("Added Luminaire. Total Room Max Power: " + totalMaxRoomPower);
+			System.out.println(">>> Luminaire count: " + luminaireRegistry.size() + " <<<");
 
 			// apply current states to the new light immediately
 			switchLights(presence); // sync power state
+			updatePresence();		// sync presence state
 			recalculateDimLevel();  // sync dim level based on new totals
         }
 
         if (supportedObject.get(Constants.DEMAND_RESPONSE_ID) != null) {
-	    System.out.println("Demand Response");
-	    //
-	    // The registerDemandResponse() method contains example code
-	    // on how handle a registration. 
-	    //
-	    int powerBudget = registerDemandResponse(registration);
+	    	System.out.println("Demand Response Registered");
+			//
+			// The registerDemandResponse() method contains example code
+			// on how handle a registration.
+			//
+			int newPowerBudget = registerDemandResponse(registration);
+			// prevent negative values
+			if (newPowerBudget >= 0) {
+				System.out.println("Registered Demand Response. Budget: " + powerBudget);
+				powerBudget = newPowerBudget;
+				recalculateDimLevel();
+			}
+
         }
 
 	//  2IMN15: don't forget to update the other luminaires.
     }
-    
+
 
     public static void handleDeregistration(Registration registration)
     {
@@ -141,22 +151,31 @@ public class RoomControl {
 	// disappear.  Update the state accordingly.
 		String endpoint = registration.getEndpoint();
 
-		//  if luminaire deregisters, remove from map and subtract peak power.
+		//  handle luminaire deregistration
 		if (luminaireRegistry.containsKey(endpoint)) {
 			int removedPower = luminaireRegistry.get(endpoint);
 
 			synchronized (luminaireRegistry) {
 				luminaireRegistry.remove(endpoint);
 				totalMaxRoomPower -= removedPower;
-				// Prevent negative values (safety check)
+				// prevent negative values
 				if (totalMaxRoomPower < 0) totalMaxRoomPower = 0;
 			}
 
 			System.out.println("Luminaire deregistered: " + endpoint);
 			System.out.println("Updated Total Room Max Power: " + totalMaxRoomPower);
+			System.out.println(">>> Luminaire count: " + luminaireRegistry.size() + " <<<");
 
-			// recalculate dim levels as the total load has changed
+			// recalculate dim levels
 			recalculateDimLevel();
+		}
+
+		// handle sensor deregistration
+		if (sensorStates.containsKey(endpoint)) {
+			sensorStates.remove(endpoint);
+			System.out.println(">>> Sensor deregistered: " + endpoint + " <<<");
+			System.out.println(">>> Active Sensors Count: " + sensorStates.size() + " <<<");
+			updatePresence();
 		}
     }
     
@@ -181,12 +200,13 @@ public class RoomControl {
 
 				String strVal = ((LwM2mResource) response.getContent()).getValue().toString();
 				boolean newPresence = Boolean.parseBoolean(strVal);
+				String endpoint = registration.getEndpoint();
 
-				System.out.println("Observation: Presence is " + newPresence);
+				System.out.println("Update from " + endpoint + ": Presence is " + newPresence);
 
-				// update state and switch lights
-				presence = newPresence;
-				switchLights(presence);
+				// update only sensors state
+				sensorStates.put(endpoint, newPresence);
+				updatePresence();
 			}
 	    
 
@@ -223,7 +243,6 @@ public class RoomControl {
 		}
 	}
 
-	// calculates allowed dim level based on total peak power vs budget
 	private static void recalculateDimLevel() {
 		if (totalMaxRoomPower == 0) return;
 
@@ -231,17 +250,13 @@ public class RoomControl {
 		int dimLevel = (int) (ratio * 100);
 
 		// cap
-		if (dimLevel > 100) {
-			dimLevel = 100;
-		} else if (dimLevel < 0) {
-			dimLevel = 0;
-		}
+		if (dimLevel > 100) dimLevel = 100;
+		if (dimLevel < 0) dimLevel = 0;
 
 		System.out.println("Recalculating Dim Level: Budget=" + powerBudget +
 				", TotalMax=" + totalMaxRoomPower +
 				" -> Setting Dim Level to: " + dimLevel + "%");
 
-		// send write request to all luminaires
 		synchronized (luminaireRegistry) {
 			for (String endpoint : luminaireRegistry.keySet()) {
 				Registration reg = lwServer.getRegistrationService().getByEndpoint(endpoint);
@@ -250,6 +265,22 @@ public class RoomControl {
 				}
 			}
 		}
+	}
+
+	private static void updatePresence() {
+		boolean roomPresence = false;
+
+		// room is occupied if any sensor is true
+		synchronized(sensorStates) {
+			for (boolean state : sensorStates.values()) {
+				if (state) {
+					roomPresence = true;
+					break;
+				}
+			}
+		}
+
+		switchLights(roomPresence);
 	}
 
     // Support functions for reading and writing resources of

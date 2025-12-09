@@ -89,7 +89,6 @@ public class PresenceDetector extends BaseInstanceEnabler {
 		guiFrame.setLayout(new GridLayout(1, 1, 10, 10));
 		guiFrame.add(checkBox);
 		guiFrame.pack();
-//		guiFrame.setVisible(true);
 
 		// show window
 		EventQueue.invokeLater(new Runnable() {
